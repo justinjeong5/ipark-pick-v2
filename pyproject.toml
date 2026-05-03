@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ipark-drawing"
+version = "0.1.0"
+description = "Naver cafe comment automation for real-estate drawing"
+requires-python = ">=3.9"
+dependencies = [
+    "patchright>=1.49",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+ipark-drawing = "ipark_drawing.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ipark_drawing"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+# SIM105 keeps recommending contextlib.suppress for our short try/except/pass
+# best-effort blocks; the explicit form is more readable here.
+ignore = ["SIM105"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

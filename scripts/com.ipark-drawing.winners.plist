@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Thursday afternoon winner check at 14:30. Auto-discovers today's
+    "당첨자 발표" article from the all-articles board.
+  -->
+  <key>Label</key>
+  <string>com.ipark-drawing.winners</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd /Users/justinjeong/Workspace/ipark-drawing &amp;&amp; ./scripts/run-winners.sh</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>4</integer>
+    <key>Hour</key><integer>14</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/justinjeong/Workspace/ipark-drawing/data/winners.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/justinjeong/Workspace/ipark-drawing/data/winners.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+  <key>KeepAlive</key>
+  <false/>
+</dict>
+</plist>

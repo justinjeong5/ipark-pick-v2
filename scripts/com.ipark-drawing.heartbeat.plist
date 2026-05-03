@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Optional sanity ping every Thursday at 09:55 — confirms the laptop is
+    awake, env is loaded and Telegram works before the real run starts at 10:00.
+    Disable by removing the agent if the noise isn't useful.
+  -->
+  <key>Label</key>
+  <string>com.ipark-drawing.heartbeat</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd /Users/justinjeong/Workspace/ipark-drawing &amp;&amp; .venv/bin/python -m ipark_drawing.heartbeat</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>4</integer>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>55</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/justinjeong/Workspace/ipark-drawing/data/heartbeat.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/justinjeong/Workspace/ipark-drawing/data/heartbeat.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+  <key>KeepAlive</key>
+  <false/>
+</dict>
+</plist>

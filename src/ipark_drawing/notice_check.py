@@ -1,5 +1,6 @@
-"""Wednesday-evening sanity check: read the operator's '공실 안내' post and
+"""Wednesday-morning sanity check: read the operator's '공실 안내' post and
 relay its contents so the user knows whether tomorrow's drawing is ON or OFF.
+Single-fetch only — the 30-minute polling loop lives in scripts/run-notice.sh.
 
 Body structure (verified against real posts on 2026-04-22 and 2026-04-29):
 

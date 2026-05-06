@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
   <!--
-    Wednesday 17:00 — read tomorrow's '공실 안내' post and forward to Telegram.
-    Adjust Hour/Minute if the operator publishes at a different time.
+    Wednesday 10:00 trigger. Polling logic lives in scripts/run-notice.sh
+    (5 attempts at ~30 min intervals through ~12:00).
     launchd weekday: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
   -->
   <key>Label</key>
@@ -20,7 +20,7 @@
   <key>StartCalendarInterval</key>
   <dict>
     <key>Weekday</key><integer>3</integer>
-    <key>Hour</key><integer>17</integer>
+    <key>Hour</key><integer>10</integer>
     <key>Minute</key><integer>0</integer>
   </dict>
 

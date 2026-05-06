@@ -178,7 +178,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     morning = sub.add_parser(
         "run-morning",
-        help="평일 10시 운영용: 여러 계정을 병렬 실행 + 텔레그램 알림",
+        help="목요일 10시 운영용: 여러 계정을 병렬 실행 + 텔레그램 알림",
     )
     morning.add_argument(
         "--accounts",
@@ -255,6 +255,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="텔레그램 알림 비활성화 (디버깅용)",
     )
+    notice.add_argument(
+        "--no-missing-notify",
+        action="store_true",
+        help="안내 글 미발견 시 '직접 확인' 알림 비활성화 (폴링 중간 시도용)",
+    )
 
     return parser
 
@@ -315,7 +320,7 @@ async def _run_check_notice(account: Account, args: argparse.Namespace) -> int:
         )
         if article_id is None:
             logger.info("공실 안내 글 미발견")
-            if not args.no_notify:
+            if not args.no_notify and not args.no_missing_notify:
                 try:
                     await send_message(telegram, format_notice_missing_message())
                 except Exception as exc:  # noqa: BLE001

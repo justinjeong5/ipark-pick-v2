@@ -1,7 +1,8 @@
 # Proposal: Naver Cafe Comment Bot — Phase 1 (Comment Posting)
 
 - **Date**: 2026-05-03
-- **Status**: Active
+- **Status**: Completed
+- **Phases**: Phase 1 + Phase 2 운영 단계 진입 (2026-05-03)
 - **Author**: justin.jeong@buzzvil.com
 - **Stage**: 1 of N (this proposal covers Phase 1 only)
 

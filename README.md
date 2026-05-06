@@ -1,12 +1,10 @@
 # ipark-drawing
 
-평일 오전 10시 네이버 카페 댓글 자동 작성 봇 (부동산 추첨용).
+매주 목요일 10:00:00~10:00:59 네이버 카페 댓글 자동 작성 봇 (i-PARK 부동산 공실 추첨용).
 
 ## 현재 단계
 
-전체 시스템 1차 완성 — 3계정 병렬 댓글 작성 + 텔레그램 알림 + 당첨자 확인 + launchd 스케줄.
-
-남은 옵션 작업: 매일 게시글 ID 자동 탐색(현재는 .env 또는 plist 환경변수로 수동 갱신).
+운영 단계 — 게시글 ID 자동 탐색 + 3계정 병렬 댓글 + 텔레그램 알림 + 당첨자 확인 + launchd 4-잡 스케줄(notice / heartbeat / morning / winners).
 
 ## 셋업
 
@@ -30,18 +28,18 @@ cp env.example .env
 
 > Hook으로 `.env`를 Claude가 직접 만들 수 없어 사용자가 직접 만드셔야 합니다.
 
-`.env`에 넣을 값:
+`.env`에 넣을 값 (`env.example` 참고):
 
 | 키 | 설명 |
 |----|------|
-| `NAVER_ACCOUNT_1_ID` | 네이버 아이디 |
-| `NAVER_ACCOUNT_1_PW` | 네이버 비밀번호 (자동 로그인 안 쓸 거면 빈 값 OK) |
-| `NAVER_ACCOUNT_1_COMMENT` | 댓글로 작성할 텍스트 (예: `900101 홍길동`) |
-| `TARGET_CAFE_URL` | 카페 메인 URL (기본값: 테스트 카페) |
-| `TARGET_CLUB_ID` | 카페 club id (기본값: 테스트 카페) |
-| `TARGET_ARTICLE_ID` | 게시글 id (기본값: 21) |
-| `TELEGRAM_BOT_TOKEN` | 기존 봇 토큰 재사용 (이번 단계 미사용) |
-| `TELEGRAM_CHAT_ID` | private supergroup이면 `-100<id>` 형태 (이번 단계 미사용) |
+| `NAVER_ACCOUNT_1_ID` ~ `..._3_ID` | 네이버 아이디 (3계정 모두 필수) |
+| `NAVER_ACCOUNT_1_COMMENT` ~ `..._3_COMMENT` | 댓글 텍스트 (`이름+생년월일4자리`, 예: `정창우1125`) |
+| `TARGET_CLUB_ID` | 카페 URL의 `/cafes/<숫자>` 부분 |
+| `TARGET_LIST_MENU_ID` | 게시판 자동 탐색 메뉴 ID (`0` = 전체글, 권장) |
+| `TELEGRAM_BOT_TOKEN` | BotFather 발급 토큰 (`12345:AAA...`) |
+| `TELEGRAM_CHAT_ID` | 비공개 그룹은 `-100<id>` 형태 |
+| `HEADFUL` | `true`=브라우저 표시(디버깅), `false`=백그라운드(운영, 기본) |
+| `COMMENT_POLL_TIMEOUT` | 댓글창 폴링 타임아웃 초 (기본 60) |
 
 ### 3) 첫 로그인 (쿠키 저장)
 
@@ -73,38 +71,48 @@ HEADFUL=true ipark-drawing comment --account 1 --at 10:00:00
 ### 5) 운영용 명령
 
 ```sh
-# 평일 10시 — 3계정 병렬 댓글 + 텔레그램 알림 (1차)
+# 목요일 10:00 — 3계정 병렬 댓글 + 텔레그램 알림 (1차)
+# article-id 미지정 시 자동 탐색
 ipark-drawing run-morning --accounts 1,2,3 --at 10:00:00
 
-# 평일 14:30 — 당첨자 확인 + 텔레그램 알림 (2차)
-ipark-drawing check-winners --account 1 --result-url "<오늘 발표 URL>" --at 14:30:00
+# 목요일 14:30 — 당첨자 확인 + 텔레그램 알림 (2차)
+ipark-drawing check-winners --account 1 --result-url "<발표 URL>"
+
+# 수요일 — '공실 안내' 글 단발 조회 (폴링은 scripts/run-notice.sh가 담당)
+ipark-drawing check-notice --account 1
 ```
 
 `--no-notify`로 텔레그램 끄고 디버깅 가능.
 
 ### 6) launchd로 자동화
 
-`scripts/install-launchd.sh`로 한 번에 등록.
+`scripts/install-launchd.sh`로 4개 잡 한 번에 등록.
 
 ```sh
 ./scripts/install-launchd.sh
-launchctl list | grep ipark-drawing   # 확인
+launchctl list | grep ipark-drawing                       # 4개 잡 확인
+launchctl print gui/$(id -u)/com.ipark-drawing.morning    # runs / last exit code
 tail -f data/morning.out.log data/morning.err.log
 ```
 
-두 plist 모두 **목요일만 동작**(`Weekday=4`)하고 매주 게시글 ID는 자동 탐색됩니다.
+| 잡 | Weekday | 트리거 | 역할 |
+|----|---------|------|------|
+| `notice` | 수 (3) | 10:00 → 12:00 (30분 간격 5회) | '공실 안내' 글 발견 시 즉시 텔레그램 / 12:00까지 미발견 시 "직접 확인" 알림 |
+| `heartbeat` | 목 (4) | 09:55 | morning 직전 sanity ping (env·텔레그램 검증) |
+| `morning` | 목 (4) | 09:57 | discover → 10:00 댓글 작성 → 1차 알림 |
+| `winners` | 목 (4) | 14:30 → 15:00 (5분 간격 7회) | discover 폴링 → 발견 시 매치 + 2차 알림 / 미발견 시 "직접 확인" 알림 |
+
+매주 게시글 ID는 자동 탐색됩니다.
 
 ### 운영 안정성 가이드
 
 - **노트북 sleep 방지**: launchd는 sleep 중인 맥북을 깨우지 않습니다. 시스템 환경설정 → 배터리 → "디스플레이가 꺼졌을 때 컴퓨터가 자동으로 잠자기 못함" 또는 트리거 직전에 `caffeinate -i &` 실행 권장. 노트북을 항상 켜두는 환경이라면 무시해도 OK.
-- **launchd 트리거 시간**:
-  - 09:57 목요일 → `run-morning.sh` (discover → 10:00 댓글 작성 → 1차 알림)
-  - 14:30 목요일 → `run-winners.sh` (discover 7회 폴링 → 발견 시 매치 → 2차 알림)
 - **state 파일** `data/state/last-run.json`이 두 잡 사이의 분기 신호입니다:
   - 오전에 추첨이 안 열렸으면 winners 잡은 silent skip
   - 같은 날 winners 잡이 두 번 트리거되면 두 번째는 dedup
-- **로그 위치**: `data/morning.{out,err}.log`, `data/winners.{out,err}.log`
+- **로그 위치**: `data/{notice,heartbeat,morning,winners}.{out,err}.log`
 - **쿠키 만료**: 댓글 흐름에서 `LOGIN_EXPIRED` 감지되면 텔레그램으로 즉시 알림이 갑니다. 그때 `ipark-drawing login --account N`으로 갱신.
+- **로그·스크린샷 정리**: `./scripts/cleanup-old.sh`로 30일 경과 파일 + 10MB 초과 로그 삭제. 필요 시 별도 launchd 잡으로 묶어 주기 실행 가능.
 
 ### Troubleshooting FAQ
 
@@ -116,10 +124,11 @@ tail -f data/morning.out.log data/morning.err.log
 2) 봇이 채팅방 멤버인지 확인 (BotFather에서 발급한 봇을 새 채팅방에 초대 필요)
 3) `data/morning.err.log`에서 `Telegram 알림 발송 실패` 키워드 검색
 
-**Q3. 평일 10시인데 launchd가 안 돌았어요.**
-- 노트북이 sleep이면 trigger 누락. 환경설정 → 배터리에서 절전 비활성화하거나 9:50쯤 깨워두기.
-- `launchctl list | grep ipark-drawing`로 등록 상태 확인.
-- `data/morning.{out,err}.log` 비어있으면 launchd 자체가 안 돌은 것 → `./scripts/install-launchd.sh` 재실행.
+**Q3. 목요일 10시인데 launchd가 안 돌았어요.**
+- 노트북이 sleep이면 trigger 누락. 환경설정 → 배터리에서 절전 비활성화하거나 09:50쯤 깨워두기.
+- `launchctl list | grep ipark-drawing`로 4개 잡 등록 상태 확인.
+- `launchctl print gui/$(id -u)/com.ipark-drawing.morning` → `runs`가 0이면 한 번도 트리거되지 않음. 오늘이 목요일이 아니면 정상이고, 목요일이라면 sleep 또는 등록 누락.
+- `data/morning.{out,err}.log` 비어 있으면 launchd 자체가 안 돈 것 → `./scripts/install-launchd.sh` 재실행.
 
 **Q4. 시간대가 어긋나요 (10시인데 11시에 돌거나).**
 macOS 시간대를 `Asia/Seoul`로 설정. 시스템 환경설정 → 일반 → 날짜 및 시간 → 시간대.
@@ -142,20 +151,31 @@ launchd 재로드 직후 한 번 일어날 수 있는 race condition입니다. `
 
 ```
 src/ipark_drawing/
-├── config.py        # 환경변수 / 계정 / selector
-├── browser.py       # patchright(stealth fork) 컨텍스트
-├── naver_auth.py    # 쿠키 기반 로그인 검증
-├── comment_bot.py   # reload 폴링 + 댓글 작성 + 카운터 검증
-├── orchestrator.py  # 3계정 병렬 실행 + 텔레그램 1차 알림
-├── winner_check.py  # 발표 게시글 텍스트에서 우리 댓글 매치
-├── telegram.py      # Bot API HTTP, chat_id 자동 변환
-├── inspector.py     # selector 디버깅용 DOM 덤프
-└── cli.py           # CLI 엔트리포인트
+├── config.py         # 환경변수 / 계정 / selector
+├── browser.py        # patchright(stealth fork) 컨텍스트
+├── naver_auth.py     # 쿠키 기반 로그인 검증
+├── board_finder.py   # 전체글 게시판에서 오늘 글 자동 탐색 (kind=comment|winner|notice)
+├── comment_bot.py    # reload 폴링 + 댓글 작성 + 카운터 검증
+├── orchestrator.py   # 3계정 병렬 실행 + 텔레그램 1차 알림
+├── winner_check.py   # 발표 게시글 텍스트에서 우리 댓글 매치
+├── notice_check.py   # 수요일 공실 안내 글 파싱 + 메시지 포맷
+├── heartbeat.py      # morning 직전 sanity ping
+├── state.py          # last-run.json + history 스냅샷
+├── locking.py        # 잡 동시 실행 방지 락
+├── telegram.py       # Bot API HTTP, chat_id 자동 변환
+├── inspector.py      # selector 디버깅용 DOM 덤프
+└── cli.py            # CLI 엔트리포인트
 
 scripts/
-├── com.ipark-drawing.morning.plist   # 평일 10시
-├── com.ipark-drawing.winners.plist   # 평일 14:30
-└── install-launchd.sh                # 한 번에 등록
+├── com.ipark-drawing.notice.plist    # 수 10:00
+├── com.ipark-drawing.heartbeat.plist # 목 09:55
+├── com.ipark-drawing.morning.plist   # 목 09:57
+├── com.ipark-drawing.winners.plist   # 목 14:30
+├── run-notice.sh                     # check-notice 폴링 래퍼 (5회/30분 간격)
+├── run-morning.sh                    # discover + run-morning 래퍼
+├── run-winners.sh                    # discover 폴링 + check-winners 래퍼
+├── install-launchd.sh                # 4개 잡 한 번에 등록
+└── cleanup-old.sh                    # 30일 경과 파일 + 10MB 초과 로그 정리
 ```
 
 ## 테스트
